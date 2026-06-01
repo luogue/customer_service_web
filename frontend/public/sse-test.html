@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SSE流式输出测试</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: #f0f2f5;
+            padding: 20px;
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+        }
+        
+        .info-box {
+            background: #e6f7ff;
+            border: 1px solid #91d5ff;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .info-box h3 {
+            color: #1890ff;
+            margin-bottom: 10px;
+        }
+        
+        .info-box code {
+            background: #f6ffed;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            color: #52c41a;
+        }
+        
+        .test-section {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .test-section h2 {
+            color: #ff8c00;
+            margin-bottom: 15px;
+            font-size: 18px;
+        }
+        
+        .input-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        
+        input[type="text"] {
+            flex: 1;
+            padding: 12px;
+            border: 1px solid #d9d9d9;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+        
+        input[type="text"]:focus {
+            outline: none;
+            border-color: #ff8c00;
+        }
+        
+        button {
+            padding: 12px 24px;
+            background: #ff8c00;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+        
+        button:hover {
+            background: #ffa500;
+        }
+        
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        
+        .output-box {
+            background: #f6f8fa;
+            border: 1px solid #e1e4e8;
+            border-radius: 8px;
+            padding: 15px;
+            min-height: 150px;
+            max-height: 400px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            line-height: 1.6;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        
+        .output-box.streaming {
+            border-color: #ff8c00;
+            background: #fff7e6;
+        }
+        
+        .status {
+            margin-top: 10px;
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+        
+        .status.connecting {
+            background: #e6f7ff;
+            color: #1890ff;
+        }
+        
+        .status.streaming {
+            background: #fff7e6;
+            color: #ff8c00;
+        }
+        
+        .status.completed {
+            background: #f6ffed;
+            color: #52c41a;
+        }
+        
+        .status.error {
+            background: #fff1f0;
+            color: #f5222d;
+        }
+        
+        .chunk-marker {
+            display: inline-block;
+            background: #ff8c00;
+            color: white;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 10px;
+            margin-right: 5px;
+        }
+        
+        .curl-example {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            overflow-x: auto;
+            margin-top: 10px;
+        }
+        
+        .curl-example .comment {
+            color: #6a9955;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 SSE 流式输出测试页面</h1>
+        
+        <div class="info-box">
+            <h3>📌 接口信息</h3>
+            <p><strong>POST 接口:</strong> <code>http://localhost:8000/api/stream/chat</code></p>
+            <p><strong>GET 接口:</strong> <code>http://localhost:8000/api/stream/chat?message=你好</code></p>
+            <p><strong>测试接口:</strong> <code>http://localhost:8000/api/stream/test</code></p>
+        </div>
+        
+        <!-- POST方式测试 -->
+        <div class="test-section">
+            <h2>1️⃣ POST 方式测试 (推荐)</h2>
+            <div class="input-group">
+                <input type="text" id="postInput" placeholder="输入消息..." value="你好">
+                <button id="postBtn" onclick="testPost()">发送</button>
+            </div>
+            <div id="postOutput" class="output-box">等待发送...</div>
+            <div id="postStatus" class="status" style="display: none;"></div>
+            
+            <div class="curl-example">
+                <span class="comment"># curl 测试命令</span><br>
+                curl -N -X POST http://localhost:8000/api/stream/chat \<br>
+                &nbsp;&nbsp;-H "Content-Type: application/json" \<br>
+                &nbsp;&nbsp;-d '{"message": "你好"}'
+            </div>
+        </div>
+        
+        <!-- GET方式测试 -->
+        <div class="test-section">
+            <h2>2️⃣ GET 方式测试</h2>
+            <div class="input-group">
+                <input type="text" id="getInput" placeholder="输入消息..." value="测试消息">
+                <button id="getBtn" onclick="testGet()">发送</button>
+            </div>
+            <div id="getOutput" class="output-box">等待发送...</div>
+            <div id="getStatus" class="status" style="display: none;"></div>
+            
+            <div class="curl-example">
+                <span class="comment"># curl 测试命令</span><br>
+                curl -N "http://localhost:8000/api/stream/chat?message=你好"
+            </div>
+        </div>
+        
+        <!-- 快速测试 -->
+        <div class="test-section">
+            <h2>3️⃣ 快速测试接口</h2>
+            <button onclick="testQuick()">开始测试</button>
+            <div id="quickOutput" class="output-box" style="margin-top: 15px;">点击按钮开始测试...</div>
+            <div id="quickStatus" class="status" style="display: none;"></div>
+            
+            <div class="curl-example">
+                <span class="comment"># curl 测试命令</span><br>
+                curl -N http://localhost:8000/api/stream/test
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8000';
+        
+        // 更新状态显示
+        function updateStatus(elementId, status, text) {
+            const el = document.getElementById(elementId);
+            el.style.display = 'block';
+            el.className = 'status ' + status;
+            el.textContent = text;
+        }
+        
+        // POST方式测试
+        async function testPost() {
+            const input = document.getElementById('postInput');
+            const output = document.getElementById('postOutput');
+            const btn = document.getElementById('postBtn');
+            const message = input.value.trim() || '你好';
+            
+            output.textContent = '';
+            output.classList.add('streaming');
+            btn.disabled = true;
+            updateStatus('postStatus', 'connecting', '正在连接...');
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/stream/chat`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ message: message, session_id: 'test' })
+                });
+                
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let buffer = '';
+                
+                updateStatus('postStatus', 'streaming', '接收流式数据中...');
+                
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    
+                    buffer += decoder.decode(value, { stream: true });
+                    const lines = buffer.split('\n');
+                    buffer = lines.pop(); // 保留未完成的行
+                    
+                    for (const line of lines) {
+                        if (line.startsWith('data: ')) {
+                            const data = line.slice(6);
+                            if (data === '[DONE]') {
+                                updateStatus('postStatus', 'completed', '✅ 接收完成');
+                            } else {
+                                try {
+                                    const json = JSON.parse(data);
+                                    if (json.content) {
+                                        output.textContent += json.content;
+                                        output.scrollTop = output.scrollHeight;
+                                    }
+                                } catch (e) {
+                                    console.log('解析错误:', e);
+                                }
+                            }
+                        }
+                    }
+                }
+                
+            } catch (error) {
+                console.error('Error:', error);
+                updateStatus('postStatus', 'error', '❌ 连接失败: ' + error.message);
+                output.textContent = '错误: ' + error.message;
+            } finally {
+                output.classList.remove('streaming');
+                btn.disabled = false;
+            }
+        }
+        
+        // GET方式测试
+        async function testGet() {
+            const input = document.getElementById('getInput');
+            const output = document.getElementById('getOutput');
+            const btn = document.getElementById('getBtn');
+            const message = input.value.trim() || '测试';
+            
+            output.textContent = '';
+            output.classList.add('streaming');
+            btn.disabled = true;
+            updateStatus('getStatus', 'connecting', '正在连接...');
+            
+            try {
+                const response = await fetch(
+                    `${API_BASE}/api/stream/chat?message=${encodeURIComponent(message)}&session_id=test`
+                );
+                
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let buffer = '';
+                
+                updateStatus('getStatus', 'streaming', '接收流式数据中...');
+                
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    
+                    buffer += decoder.decode(value, { stream: true });
+                    const lines = buffer.split('\n');
+                    buffer = lines.pop();
+                    
+                    for (const line of lines) {
+                        if (line.startsWith('data: ')) {
+                            const data = line.slice(6);
+                            if (data === '[DONE]') {
+                                updateStatus('getStatus', 'completed', '✅ 接收完成');
+                            } else {
+                                try {
+                                    const json = JSON.parse(data);
+                                    if (json.content) {
+                                        output.textContent += json.content;
+                                        output.scrollTop = output.scrollHeight;
+                                    }
+                                } catch (e) {
+                                    console.log('解析错误:', e);
+                                }
+                            }
+                        }
+                    }
+                }
+                
+            } catch (error) {
+                console.error('Error:', error);
+                updateStatus('getStatus', 'error', '❌ 连接失败: ' + error.message);
+                output.textContent = '错误: ' + error.message;
+            } finally {
+                output.classList.remove('streaming');
+                btn.disabled = false;
+            }
+        }
+        
+        // 快速测试
+        async function testQuick() {
+            const output = document.getElementById('quickOutput');
+            
+            output.textContent = '';
+            output.classList.add('streaming');
+            updateStatus('quickStatus', 'connecting', '正在连接...');
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/stream/test`);
+                
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let buffer = '';
+                
+                updateStatus('quickStatus', 'streaming', '接收流式数据中...');
+                
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    
+                    buffer += decoder.decode(value, { stream: true });
+                    const lines = buffer.split('\n');
+                    buffer = lines.pop();
+                    
+                    for (const line of lines) {
+                        if (line.startsWith('data: ')) {
+                            const data = line.slice(6);
+                            if (data === '[DONE]') {
+                                updateStatus('quickStatus', 'completed', '✅ 接收完成');
+                            } else {
+                                try {
+                                    const json = JSON.parse(data);
+                                    if (json.content) {
+                                        output.textContent += json.content;
+                                        output.scrollTop = output.scrollHeight;
+                                    }
+                                } catch (e) {
+                                    console.log('解析错误:', e);
+                                }
+                            }
+                        }
+                    }
+                }
+                
+            } catch (error) {
+                console.error('Error:', error);
+                updateStatus('quickStatus', 'error', '❌ 连接失败: ' + error.message);
+                output.textContent = '错误: ' + error.message;
+            } finally {
+                output.classList.remove('streaming');
+            }
+        }
+        
+        // 回车键发送
+        document.getElementById('postInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') testPost();
+        });
+        document.getElementById('getInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') testGet();
+        });
+    </script>
+</body>
+</html>

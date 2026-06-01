@@ -1,0 +1,94 @@
+# 敏感信息文件
+.env
+.env.local
+.env.*.local
+*.key
+*.pem
+secrets.yml
+secrets.json
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# 虚拟环境
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# 数据库
+*.db
+*.sqlite
+*.sqlite3
+
+# 日志
+logs/
+*.log
+*.log.*
+
+# 备份
+backups/
+*.backup
+*.bak
+
+# 测试
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# Docker
+.dockerignore
+
+# 临时文件
+tmp/
+temp/
+*.tmp
+
+# 向量库
+vector_index/
+*.npy
+
+# 数据文件
+*.json
+!package.json
+!package-lock.json
+*.csv
+*.xlsx
+*.xls
+
+# 前端依赖
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+
+# 敏感词库
+backend/tencent-sensitive-words/
